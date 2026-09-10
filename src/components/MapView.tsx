@@ -19,6 +19,7 @@ interface MapViewProps {
   onSelectStation: (station: ChargingStation) => void;
   onSelectWaypoint?: (wp: SessionWaypoint) => void;
   onRecenterUser: () => void;
+  onDeselect?: () => void;
 }
 
 const MAPBOX_STYLE = 'mapbox://styles/mapbox/light-v11';
@@ -53,6 +54,7 @@ export const MapView: React.FC<MapViewProps> = ({
   onSelectStation,
   onSelectWaypoint,
   onRecenterUser,
+  onDeselect,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -73,6 +75,9 @@ export const MapView: React.FC<MapViewProps> = ({
 
   const onSelectStationRef = useRef(onSelectStation);
   onSelectStationRef.current = onSelectStation;
+
+  const onDeselectRef = useRef(onDeselect);
+  onDeselectRef.current = onDeselect;
 
   // Display rich popup for a bike
   const showBikePopup = (bike: EnrichedBike, mapInstance?: mapboxgl.Map) => {
@@ -663,6 +668,17 @@ export const MapView: React.FC<MapViewProps> = ({
         }
       });
 
+      // Click on background map to deselect
+      map.on('click', (e) => {
+        const features = map.queryRenderedFeatures(e.point, {
+          layers: [CLUSTERS_LAYER, UNCLUSTERED_LAYER, PRIORITY_LAYER, STATIONS_LAYER],
+        });
+        if (features.length === 0) {
+          if (popupRef.current) popupRef.current.remove();
+          if (onDeselectRef.current) onDeselectRef.current();
+        }
+      });
+
       syncBikesToSource(bikesRef.current);
       syncStationsToSource(stationsRef.current);
     });
@@ -911,7 +927,7 @@ export const MapView: React.FC<MapViewProps> = ({
         type="button"
         onClick={onRecenterUser}
         title="Recentrer la carte"
-        className="absolute bottom-48 md:bottom-8 right-4 z-10 p-3 rounded-2xl glass-panel text-slate-800 hover:text-blue-600 shadow-xl shadow-slate-900/10 border border-white/80 active:scale-95 transition"
+        className="absolute bottom-28 md:bottom-8 right-4 z-10 p-3 rounded-2xl glass-panel text-slate-800 hover:text-blue-600 shadow-xl shadow-slate-900/10 border border-white/80 active:scale-95 transition"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

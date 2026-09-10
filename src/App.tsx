@@ -79,6 +79,11 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  const handleDeselect = useCallback(() => {
+    setSelectedBike(null);
+    setSelectedStation(null);
+  }, []);
+
   const handleToggleSession = useCallback(() => {
     if (isSessionActive) {
       endSession();
@@ -153,6 +158,7 @@ export const App: React.FC = () => {
         onSelectStation={handleSelectStation}
         onSelectWaypoint={handleSelectWaypoint}
         onRecenterUser={handleRecenterUser}
+        onDeselect={handleDeselect}
       />
 
       {/* Session Cockpit when recharge session is active */}
@@ -181,10 +187,13 @@ export const App: React.FC = () => {
           onResetFilters={resetFilters}
           selectedBikeId={selectedBike?.id || null}
           selectedStationId={selectedStation?.id || null}
+          selectedBike={selectedBike}
+          selectedStation={selectedStation}
           onSelectBike={handleSelectBike}
           onFocusOnMap={handleSelectBike}
           onSelectStation={handleSelectStation}
           onFocusStationOnMap={handleSelectStation}
+          onDeselect={handleDeselect}
         />
       )}
 

@@ -44,11 +44,124 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="absolute top-0 left-0 right-0 z-30 pointer-events-none pt-safe px-3">
       <div className="max-w-6xl mx-auto flex flex-col gap-2">
-        <div className="glass-panel rounded-2xl shadow-xl shadow-slate-900/5 px-4 py-3 flex items-center justify-between pointer-events-auto border border-white/60">
+        {/* 
+          MOBILE HEADER (screens < md): 2-row layout to prevent overflow on 393px width
+        */}
+        <div className="md:hidden glass-panel rounded-2xl shadow-xl shadow-slate-900/5 p-2.5 flex flex-col gap-1.5 pointer-events-auto border border-white/70">
+          {/* Row 1: Brand & Actions */}
+          <div className="flex items-center justify-between">
+            {/* Left: Brand */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#00DE00] flex items-center justify-center shadow-md shadow-[#00DE00]/30 text-slate-950 font-black">
+                {displayMode === 'stations_only' ? (
+                  <Zap className="w-4 h-4 fill-current" />
+                ) : (
+                  <Bike className="w-4 h-4 stroke-[2.5]" />
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm font-black text-slate-900 leading-none tracking-tight">
+                  {displayMode === 'stations_only' ? 'Stations Lime' : 'Lime Paris'}
+                </h1>
+                <span className="w-2 h-2 rounded-full bg-[#00DE00] animate-pulse" />
+              </div>
+            </div>
+
+            {/* Right: Quick Actions */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onToggleSession}
+                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-black transition flex items-center gap-1 active:scale-95 shadow-xs ${
+                  isSessionActive
+                    ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400/50'
+                    : 'bg-[#00DE00] text-slate-950 shadow-[#00DE00]/30'
+                }`}
+              >
+                <Zap className="w-3 h-3 fill-current" />
+                <span>{isSessionActive ? 'Session' : 'Session'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onOpenInstallModal}
+                title="Installer sur iPhone"
+                className="p-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200 text-slate-700 border border-slate-200/80 transition active:scale-95 flex items-center justify-center"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={userLocation && !isUsingFallback ? onRecenterUser : onRecenterParis}
+                title={userLocation && !isUsingFallback ? 'Ma position' : 'Paris Centre'}
+                className="p-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200 text-slate-700 border border-slate-200/80 transition active:scale-95 flex items-center justify-center"
+              >
+                <Navigation
+                  className={`w-3.5 h-3.5 ${
+                    userLocation && !isUsingFallback
+                      ? 'fill-blue-600 text-blue-600'
+                      : 'text-slate-600'
+                  }`}
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={loading}
+                title="Rafraîchir"
+                className="p-1.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition active:scale-95 disabled:opacity-50 flex items-center justify-center shadow-xs"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Status chips ticker */}
+          <div className="flex items-center justify-between pt-1 border-t border-slate-100/80 text-[11px]">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {displayMode === 'stations_only' ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-[#00DE00]/20 text-[#008700] border border-[#00DE00]/40 text-[10px]">
+                  <Zap className="w-2.5 h-2.5 fill-current mr-1" />
+                  {stationsCount} stations Lime
+                </span>
+              ) : (
+                <>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300/80 text-[10px] whitespace-nowrap">
+                    <Zap className="w-2.5 h-2.5 fill-amber-500 text-amber-500 mr-1" />
+                    {rechargeCount} à charger
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700 text-[10px] whitespace-nowrap">
+                    {filteredCount === totalCount
+                      ? `${totalCount.toLocaleString()} vélos`
+                      : `${filteredCount}/${totalCount}`}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-800 text-[10px] whitespace-nowrap">
+                    {stationsCount} stations
+                  </span>
+                </>
+              )}
+            </div>
+
+            <span className="text-[10px] text-slate-400 font-medium shrink-0 pl-1">
+              {secondsSinceUpdate <= 2 ? 'À l’instant' : `${secondsSinceUpdate}s`}
+            </span>
+          </div>
+        </div>
+
+        {/* 
+          DESKTOP HEADER (screens >= md)
+        */}
+        <div className="hidden md:flex glass-panel rounded-2xl shadow-xl shadow-slate-900/5 px-4 py-3 items-center justify-between pointer-events-auto border border-white/60">
           {/* Brand & Title */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#00DE00] flex items-center justify-center shadow-lg shadow-[#00DE00]/30 text-slate-950 font-black">
-              {displayMode === 'stations_only' ? <Zap className="w-6 h-6 fill-current" /> : <Bike className="w-6 h-6 stroke-[2.5]" />}
+              {displayMode === 'stations_only' ? (
+                <Zap className="w-6 h-6 fill-current" />
+              ) : (
+                <Bike className="w-6 h-6 stroke-[2.5]" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -77,7 +190,9 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
                 <span>•</span>
                 <span>
-                  {secondsSinceUpdate <= 2 ? 'À l’instant' : `Mis à jour il y a ${secondsSinceUpdate}s`}
+                  {secondsSinceUpdate <= 2
+                    ? 'À l’instant'
+                    : `Mis à jour il y a ${secondsSinceUpdate}s`}
                 </span>
               </p>
             </div>
@@ -114,9 +229,9 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Display Mode Switcher (hidden in session mode to avoid conflict) */}
+            {/* Display Mode Switcher */}
             {!isSessionActive && (
-              <div className="hidden lg:flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
+              <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
                 <button
                   type="button"
                   onClick={() => onChangeDisplayMode('all')}
