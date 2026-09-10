@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/lime/:path*",
+      "destination": "https://data.lime.bike/:path*"
+    }
+  ]
+}
