@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type * as GeoJSON from 'geojson';
 import type { EnrichedBike, ChargingStation, UserLocation, ViewDisplayMode } from '../types/gbfs';
@@ -24,17 +24,12 @@ interface MapViewProps {
 
 const MAPBOX_STYLE = 'mapbox://styles/mapbox/light-v11';
 const BIKES_SOURCE_ID = 'lime-bikes';
-const STATIONS_SOURCE_ID = 'charging-stations-source';
 
 const CLUSTERS_LAYER = 'lime-clusters';
 const CLUSTERS_COUNT_LAYER = 'lime-cluster-count';
 const UNCLUSTERED_LAYER = 'lime-unclustered-point';
 const PRIORITY_LAYER = 'lime-priority-point';
 const SELECTED_BIKE_LAYER = 'lime-selected-bike';
-
-const STATIONS_PULSE_LAYER = 'lime-stations-pulse';
-const STATIONS_LAYER = 'charging-stations-layer';
-const STATIONS_LABEL_LAYER = 'charging-stations-label';
 
 const SESSION_ROUTE_SOURCE_ID = 'lime-session-route';
 const SESSION_ROUTE_CASING_LAYER = 'lime-session-route-casing';
@@ -62,6 +57,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const isMapLoadedRef = useRef<boolean>(false);
   const sessionMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const stationMarkersRef = useRef<mapboxgl.Marker[]>([]);
 
   // Keep references to latest props
   const bikesRef = useRef(bikes);
@@ -280,6 +276,7 @@ export const MapView: React.FC<MapViewProps> = ({
           formFactor: bike.formFactor,
           isDisabled: bike.isDisabled,
           needsRecharge: bike.needsRecharge,
+          soonEmpty: Boolean(bike.soonEmpty),
         },
       })),
     };
@@ -287,32 +284,43 @@ export const MapView: React.FC<MapViewProps> = ({
     source.setData(geojson);
   };
 
-  // Helper to sync charging stations GeoJSON
-  const syncStationsToSource = (stationList: ChargingStation[]) => {
+  // Helper to sync physical station HTML totems (striking visual differentiation from bikes)
+  const syncStationMarkers = useCallback(() => {
     if (!mapRef.current || !isMapLoadedRef.current) return;
-    const source = mapRef.current.getSource(STATIONS_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
-    if (!source) return;
+    const map = mapRef.current;
 
-    const geojson: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-      type: 'FeatureCollection',
-      features: stationList.map((st) => ({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [st.lon, st.lat],
-        },
-        properties: {
-          id: st.id,
-          name: st.name,
-          isLimeHub: st.isLimeHub || false,
-          operator: st.operator,
-          distanceMeters: st.distanceMeters,
-        },
-      })),
-    };
+    // Remove existing station markers
+    stationMarkersRef.current.forEach((m) => m.remove());
+    stationMarkersRef.current = [];
 
-    source.setData(geojson);
-  };
+    const showStations = displayMode === 'all' || displayMode === 'stations_only';
+    if (!showStations) return;
+
+    chargingStations.forEach((station) => {
+      const el = document.createElement('div');
+      el.className = 'lime-station-marker';
+      el.innerHTML = `
+        <div class="lime-station-beacon"></div>
+        <div class="lime-station-badge ${station.isLimeHub ? 'is-hub' : ''}">
+          <span style="font-size: 13px;">⚡</span>
+          <span>${station.isLimeHub ? 'HUB LIME' : 'SWAP'}</span>
+        </div>
+        <div class="lime-station-pin-tail"></div>
+      `;
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onSelectStationRef.current(station);
+        showStationPopup(station, map);
+      });
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([station.lon, station.lat])
+        .addTo(map);
+
+      stationMarkersRef.current.push(marker);
+    });
+  }, [chargingStations, displayMode]);
 
   // Initialize Mapbox map once
   useEffect(() => {
@@ -404,12 +412,18 @@ export const MapView: React.FC<MapViewProps> = ({
         },
       });
 
-      // 4. Standard Unclustered Individual Bikes Layer
+      // 4. Standard Unclustered Individual Bikes Layer (High battery > 35%)
       map.addLayer({
         id: UNCLUSTERED_LAYER,
         type: 'circle',
         source: BIKES_SOURCE_ID,
-        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'isDisabled'], true], ['!=', ['get', 'needsRecharge'], true]],
+        filter: [
+          'all',
+          ['!', ['has', 'point_count']],
+          ['!=', ['get', 'isDisabled'], true],
+          ['!=', ['get', 'needsRecharge'], true],
+          ['!=', ['get', 'soonEmpty'], true],
+        ],
         paint: {
           'circle-color': '#00DE00',
           'circle-radius': [
@@ -429,18 +443,29 @@ export const MapView: React.FC<MapViewProps> = ({
         },
       });
 
-      // 5. PRIORITY LAYER for Disabled & Low Battery Bikes
+      // 5. PRIORITY LAYER for Disabled (Red), Low Battery (Amber), and Soon Empty (Orange)
       map.addLayer({
         id: PRIORITY_LAYER,
         type: 'circle',
         source: BIKES_SOURCE_ID,
-        filter: ['all', ['!', ['has', 'point_count']], ['any', ['==', ['get', 'isDisabled'], true], ['==', ['get', 'needsRecharge'], true]]],
+        filter: [
+          'all',
+          ['!', ['has', 'point_count']],
+          [
+            'any',
+            ['==', ['get', 'isDisabled'], true],
+            ['==', ['get', 'needsRecharge'], true],
+            ['==', ['get', 'soonEmpty'], true],
+          ],
+        ],
         paint: {
           'circle-color': [
             'case',
             ['==', ['get', 'isDisabled'], true],
             '#EF4444', // Red for disabled
-            '#F59E0B', // Amber for low battery
+            ['==', ['get', 'needsRecharge'], true],
+            '#F59E0B', // Amber for critical recharge (<= 20%)
+            '#FB923C', // Bright Orange for soon empty (21% - 35%)
           ],
           'circle-radius': [
             'interpolate',
@@ -453,91 +478,9 @@ export const MapView: React.FC<MapViewProps> = ({
             18,
             14,
           ],
-          'circle-stroke-width': 3,
+          'circle-stroke-width': 2.5,
           'circle-stroke-color': '#FFFFFF',
           'circle-opacity': 1,
-        },
-      });
-
-      // 6. LIME CHARGING & SWAP STATIONS SOURCE & LAYERS
-      map.addSource(STATIONS_SOURCE_ID, {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: [],
-        },
-      });
-
-      // Glowing outer pulse ring for Lime Stations
-      map.addLayer({
-        id: STATIONS_PULSE_LAYER,
-        type: 'circle',
-        source: STATIONS_SOURCE_ID,
-        paint: {
-          'circle-color': 'rgba(0, 222, 0, 0.25)',
-          'circle-radius': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            11,
-            14,
-            15,
-            22,
-          ],
-        },
-      });
-
-      // Lime Charging & Swap Station Inner Circle
-      map.addLayer({
-        id: STATIONS_LAYER,
-        type: 'circle',
-        source: STATIONS_SOURCE_ID,
-        paint: {
-          'circle-color': [
-            'case',
-            ['==', ['get', 'isLimeHub'], true],
-            '#0F172A',
-            '#00DE00',
-          ],
-          'circle-radius': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            11,
-            9,
-            14,
-            13,
-            17,
-            17,
-          ],
-          'circle-stroke-width': 3.5,
-          'circle-stroke-color': [
-            'case',
-            ['==', ['get', 'isLimeHub'], true],
-            '#00DE00',
-            '#FFFFFF',
-          ],
-          'circle-opacity': 1,
-        },
-      });
-
-      // Lightning Bolt Symbol for Lime Stations
-      map.addLayer({
-        id: STATIONS_LABEL_LAYER,
-        type: 'symbol',
-        source: STATIONS_SOURCE_ID,
-        layout: {
-          'text-field': '⚡',
-          'text-size': 12,
-          'text-allow-overlap': true,
-        },
-        paint: {
-          'text-color': [
-            'case',
-            ['==', ['get', 'isLimeHub'], true],
-            '#00DE00',
-            '#0F172A',
-          ],
         },
       });
 
@@ -629,7 +572,7 @@ export const MapView: React.FC<MapViewProps> = ({
       });
 
       // Cursor pointer effects
-      const pointerLayers = [CLUSTERS_LAYER, UNCLUSTERED_LAYER, PRIORITY_LAYER, STATIONS_LAYER];
+      const pointerLayers = [CLUSTERS_LAYER, UNCLUSTERED_LAYER, PRIORITY_LAYER];
       pointerLayers.forEach((layer) => {
         map.on('mouseenter', layer, () => {
           map.getCanvas().style.cursor = 'pointer';
@@ -655,23 +598,10 @@ export const MapView: React.FC<MapViewProps> = ({
       map.on('click', UNCLUSTERED_LAYER, handleBikeClick);
       map.on('click', PRIORITY_LAYER, handleBikeClick);
 
-      // Click handler for Lime Charging / Swap Stations
-      map.on('click', STATIONS_LAYER, (e) => {
-        const feature = e.features?.[0];
-        if (!feature || !('properties' in feature) || !feature.properties) return;
-
-        const stationProps = feature.properties as { id: string };
-        const targetStation = stationsRef.current.find((s) => s.id === stationProps.id);
-        if (targetStation) {
-          onSelectStationRef.current(targetStation);
-          showStationPopup(targetStation, map);
-        }
-      });
-
       // Click on background map to deselect
       map.on('click', (e) => {
         const features = map.queryRenderedFeatures(e.point, {
-          layers: [CLUSTERS_LAYER, UNCLUSTERED_LAYER, PRIORITY_LAYER, STATIONS_LAYER],
+          layers: [CLUSTERS_LAYER, UNCLUSTERED_LAYER, PRIORITY_LAYER],
         });
         if (features.length === 0) {
           if (popupRef.current) popupRef.current.remove();
@@ -680,7 +610,7 @@ export const MapView: React.FC<MapViewProps> = ({
       });
 
       syncBikesToSource(bikesRef.current);
-      syncStationsToSource(stationsRef.current);
+      syncStationMarkers();
     });
 
     mapRef.current = map;
@@ -688,45 +618,36 @@ export const MapView: React.FC<MapViewProps> = ({
     return () => {
       if (popupRef.current) popupRef.current.remove();
       if (userMarkerRef.current) userMarkerRef.current.remove();
+      stationMarkersRef.current.forEach((m) => m.remove());
+      stationMarkersRef.current = [];
       map.remove();
       mapRef.current = null;
       isMapLoadedRef.current = false;
     };
-  }, []);
+  }, [syncStationMarkers]);
 
   // Update GeoJSON source when bikes change
   useEffect(() => {
     syncBikesToSource(bikes);
   }, [bikes]);
 
-  // Update GeoJSON source when charging stations change
+  // Update physical station HTML totems when stations or displayMode change
   useEffect(() => {
-    syncStationsToSource(chargingStations);
-  }, [chargingStations]);
+    syncStationMarkers();
+  }, [syncStationMarkers]);
 
   // Update layer visibility based on displayMode ('all' | 'stations_only' | 'bikes_only')
   useEffect(() => {
     if (!mapRef.current || !isMapLoadedRef.current) return;
 
     const showBikes = displayMode === 'all' || displayMode === 'bikes_only';
-    const showStations = displayMode === 'all' || displayMode === 'stations_only';
-
     const bikeVisibility = showBikes ? 'visible' : 'none';
-    const stationVisibility = showStations ? 'visible' : 'none';
 
     // Toggle Bike layers
     const bikeLayers = [CLUSTERS_LAYER, CLUSTERS_COUNT_LAYER, UNCLUSTERED_LAYER, PRIORITY_LAYER];
     bikeLayers.forEach((layerId) => {
       if (mapRef.current?.getLayer(layerId)) {
         mapRef.current.setLayoutProperty(layerId, 'visibility', bikeVisibility);
-      }
-    });
-
-    // Toggle Station layers
-    const stationLayers = [STATIONS_LAYER, STATIONS_LABEL_LAYER, STATIONS_PULSE_LAYER];
-    stationLayers.forEach((layerId) => {
-      if (mapRef.current?.getLayer(layerId)) {
-        mapRef.current.setLayoutProperty(layerId, 'visibility', stationVisibility);
       }
     });
   }, [displayMode]);

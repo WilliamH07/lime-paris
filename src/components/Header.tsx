@@ -7,6 +7,7 @@ interface HeaderProps {
   filteredCount: number;
   rechargeCount: number;
   stationsCount: number;
+  soonEmptyCount?: number;
   displayMode: ViewDisplayMode;
   onChangeDisplayMode: (mode: ViewDisplayMode) => void;
   loading: boolean;
@@ -27,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   filteredCount,
   rechargeCount,
   stationsCount,
+  soonEmptyCount = 0,
   displayMode,
   onChangeDisplayMode,
   loading,
@@ -132,6 +134,11 @@ export const Header: React.FC<HeaderProps> = ({
                     <Zap className="w-2.5 h-2.5 fill-amber-500 text-amber-500 mr-1" />
                     {rechargeCount} à charger
                   </span>
+                  {soonEmptyCount > 0 && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-orange-100 text-orange-800 border border-orange-300/80 text-[10px] whitespace-nowrap">
+                      ⚡ {soonEmptyCount} bientôt vides
+                    </span>
+                  )}
                   <span className="px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700 text-[10px] whitespace-nowrap">
                     {filteredCount === totalCount
                       ? `${totalCount.toLocaleString()} vélos`

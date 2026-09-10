@@ -64,6 +64,35 @@ export interface EnrichedBike {
   isReserved: boolean;
   isDisabled: boolean;
   needsRecharge: boolean;
+  soonEmpty?: boolean; // Battery between 21% and 35% (Pre-emptive recharge candidate)
+  recentlyDropped?: boolean; // Newly appeared / finished trip
+}
+
+export interface DetectedTrip {
+  id: string;
+  bikeId: string;
+  shortId: string;
+  startTime: number;
+  endTime: number;
+  durationMinutes: number;
+  startLat: number;
+  startLon: number;
+  endLat: number;
+  endLon: number;
+  startBattery: number | null;
+  endBattery: number | null;
+  batteryDelta: number | null; // e.g. -12%
+  straightDistanceMeters: number;
+  estimatedEnergyDistanceMeters: number; // based on battery consumption
+  isRechargePriorityNow: boolean; // dropped with battery <= 20%
+}
+
+export interface BikeSnapshotDiff {
+  timestamp: number;
+  totalBikes: number;
+  departedCount: number;
+  arrivedCount: number;
+  tripsDetected: DetectedTrip[];
 }
 
 export interface BatterySlot {
@@ -101,7 +130,7 @@ export interface FilterOptions {
   maxDistance: number | null; // e.g. 300, 500, 1000 or null (all)
   minBattery: number | null;  // e.g. 20, 50 or null (all)
   formFactor: 'all' | 'bicycle' | 'scooter';
-  status: 'all' | 'recharge' | 'disabled' | 'available';
+  status: 'all' | 'recharge' | 'soon_empty' | 'disabled' | 'available';
   showChargingStations: boolean;
   displayMode: ViewDisplayMode; // 'all' | 'stations_only' | 'bikes_only'
 }

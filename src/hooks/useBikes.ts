@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import type { EnrichedBike, FilterOptions, RawBike, UserLocation, VehicleTypeMap } from '../types/gbfs';
+import type { EnrichedBike, FilterOptions, RawBike, UserLocation, VehicleTypeMap, DetectedTrip, BikeSnapshotDiff } from '../types/gbfs';
 import { fetchBikes, fetchVehicleTypes } from '../services/limeApi';
 import { estimateWalkingMinutes, getDistanceFromLatLonInMeters } from '../utils/distance';
+import { bikeTracker } from '../services/bikeTracker';
 
 interface UseBikesReturn {
   allBikes: EnrichedBike[];
@@ -9,6 +10,9 @@ interface UseBikesReturn {
   totalAvailable: number;
   rechargeCount: number;
   disabledCount: number;
+  soonEmptyCount: number;
+  recentTrips: DetectedTrip[];
+  lastDiff: BikeSnapshotDiff | null;
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
@@ -131,6 +135,15 @@ export function useBikes(userLocation: UserLocation | null): UseBikesReturn {
         (batteryPercent !== null && batteryPercent <= 20) ||
         (typeof bike.current_range_meters === 'number' && bike.current_range_meters <= 10000);
 
+      // Smart pre-emptive recharge candidate: 21% to 35% battery (will need recharge within 1-2 rides)
+      const soonEmpty =
+        !isDisabled &&
+        !needsRecharge &&
+        ((batteryPercent !== null && batteryPercent > 20 && batteryPercent <= 35) ||
+          (typeof bike.current_range_meters === 'number' &&
+            bike.current_range_meters > 10000 &&
+            bike.current_range_meters <= 16000));
+
       return {
         id: bike.bike_id,
         shortId: bike.bike_id.length > 8 ? bike.bike_id.substring(0, 8).toUpperCase() : bike.bike_id,
@@ -147,6 +160,7 @@ export function useBikes(userLocation: UserLocation | null): UseBikesReturn {
         isReserved: bike.is_reserved,
         isDisabled,
         needsRecharge,
+        soonEmpty,
       };
     });
 
@@ -178,8 +192,9 @@ export function useBikes(userLocation: UserLocation | null): UseBikesReturn {
   // Filtered bikes based on user criteria
   const filteredBikes = useMemo<EnrichedBike[]>(() => {
     return allBikes.filter((bike) => {
-      // Status filter (À recharger, Désactivés, Disponibles)
+      // Status filter (À recharger, Bientôt vide, Désactivés, Disponibles)
       if (filters.status === 'recharge' && !bike.needsRecharge) return false;
+      if (filters.status === 'soon_empty' && !bike.soonEmpty) return false;
       if (filters.status === 'disabled' && !bike.isDisabled) return false;
       if (filters.status === 'available' && (bike.isDisabled || bike.needsRecharge)) return false;
 
@@ -204,6 +219,17 @@ export function useBikes(userLocation: UserLocation | null): UseBikesReturn {
     });
   }, [allBikes, filters]);
 
+  // Track snapshots & newly inferred trips on each refresh
+  const [lastDiff, setLastDiff] = useState<BikeSnapshotDiff | null>(null);
+  const [recentTrips, setRecentTrips] = useState<DetectedTrip[]>(() => bikeTracker.getRecentTrips());
+
+  useEffect(() => {
+    if (!allBikes.length) return;
+    const diff = bikeTracker.processSnapshot(allBikes);
+    setLastDiff(diff);
+    setRecentTrips([...bikeTracker.getRecentTrips()]);
+  }, [allBikes]);
+
   // Compute counters
   const rechargeCount = useMemo(() => {
     return allBikes.filter((b) => b.needsRecharge).length;
@@ -211,6 +237,10 @@ export function useBikes(userLocation: UserLocation | null): UseBikesReturn {
 
   const disabledCount = useMemo(() => {
     return allBikes.filter((b) => b.isDisabled).length;
+  }, [allBikes]);
+
+  const soonEmptyCount = useMemo(() => {
+    return allBikes.filter((b) => b.soonEmpty).length;
   }, [allBikes]);
 
   const resetFilters = useCallback(() => {
@@ -223,6 +253,9 @@ export function useBikes(userLocation: UserLocation | null): UseBikesReturn {
     totalAvailable: allBikes.length,
     rechargeCount,
     disabledCount,
+    soonEmptyCount,
+    recentTrips,
+    lastDiff,
     loading,
     error,
     lastUpdated,

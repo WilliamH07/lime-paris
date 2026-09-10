@@ -1,7 +1,7 @@
 import React from 'react';
 import type { EnrichedBike } from '../types/gbfs';
 import { formatDistance, formatWalkingTime, getBatteryBadge } from '../utils/distance';
-import { Bike, Battery, MapPin, Footprints, Zap, AlertTriangle } from 'lucide-react';
+import { Bike, Battery, MapPin, Footprints, Zap, AlertTriangle, Clock } from 'lucide-react';
 
 interface BikeCardProps {
   bike: EnrichedBike;
@@ -33,6 +33,8 @@ export const BikeCard: React.FC<BikeCardProps> = ({
           ? 'bg-rose-50/50 border-rose-200 hover:border-rose-300 shadow-sm'
           : bike.needsRecharge
           ? 'bg-amber-50/40 border-amber-200 hover:border-amber-300 shadow-sm'
+          : bike.soonEmpty
+          ? 'bg-orange-50/40 border-orange-200 hover:border-orange-300 shadow-sm'
           : 'bg-white/80 hover:bg-white border-slate-200/80 hover:border-slate-300 shadow-sm'
       }`}
     >
@@ -49,6 +51,12 @@ export const BikeCard: React.FC<BikeCardProps> = ({
           <span>Priorité recharge (Batterie faible)</span>
         </div>
       )}
+      {!bike.isDisabled && !bike.needsRecharge && bike.soonEmpty && (
+        <div className="mb-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500 text-white text-[10px] font-black uppercase tracking-wider">
+          <Clock className="w-3 h-3" />
+          <span>Bientôt à plat (Anticipation recharge)</span>
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-2">
         {/* Left icon & details */}
@@ -59,6 +67,8 @@ export const BikeCard: React.FC<BikeCardProps> = ({
                 ? 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
                 : bike.needsRecharge
                 ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/30'
+                : bike.soonEmpty
+                ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/30'
                 : isSelected
                 ? 'bg-[#00DE00] text-slate-950 font-black shadow-sm shadow-[#00DE00]/40'
                 : 'bg-slate-100 text-slate-700'

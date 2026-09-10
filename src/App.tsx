@@ -28,6 +28,9 @@ export const App: React.FC = () => {
     totalAvailable,
     rechargeCount,
     disabledCount,
+    soonEmptyCount,
+    recentTrips,
+    lastDiff,
     loading: bikesLoading,
     error: bikesError,
     secondsSinceUpdate,
@@ -127,6 +130,7 @@ export const App: React.FC = () => {
         totalCount={totalAvailable}
         filteredCount={filteredBikes.length}
         rechargeCount={rechargeCount}
+        soonEmptyCount={soonEmptyCount}
         stationsCount={chargingStations.length}
         displayMode={filters.displayMode}
         onChangeDisplayMode={handleChangeDisplayMode}
@@ -182,6 +186,9 @@ export const App: React.FC = () => {
           totalAvailable={totalAvailable}
           rechargeCount={rechargeCount}
           disabledCount={disabledCount}
+          soonEmptyCount={soonEmptyCount}
+          recentTrips={recentTrips}
+          lastDiff={lastDiff}
           filters={filters}
           onFilterChange={setFilters}
           onResetFilters={resetFilters}

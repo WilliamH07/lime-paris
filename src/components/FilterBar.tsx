@@ -1,6 +1,6 @@
 import React from 'react';
 import type { FilterOptions } from '../types/gbfs';
-import { Zap, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Zap, RotateCcw, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 
 interface FilterBarProps {
   filters: FilterOptions;
@@ -9,6 +9,7 @@ interface FilterBarProps {
   hasActiveFilters: boolean;
   rechargeCount: number;
   disabledCount: number;
+  soonEmptyCount?: number;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -18,10 +19,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   hasActiveFilters,
   rechargeCount,
   disabledCount,
+  soonEmptyCount = 0,
 }) => {
   return (
     <div className="flex flex-col gap-2.5 pb-2">
-      {/* Primary Priority Filter: Status (À recharger / Désactivés / Disponibles / Tous) */}
+      {/* Primary Priority Filter: Status (À recharger / Bientôt vide / Désactivés / Disponibles / Tous) */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
         <button
           type="button"
@@ -47,6 +49,21 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <Zap className="w-3.5 h-3.5 fill-current" />
           <span>À recharger ({rechargeCount})</span>
         </button>
+
+        {soonEmptyCount > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange({ ...filters, status: 'soon_empty' })}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+              filters.status === 'soon_empty'
+                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30'
+                : 'bg-orange-50 text-orange-800 border border-orange-200 hover:bg-orange-100'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Bientôt vide ({soonEmptyCount})</span>
+          </button>
+        )}
 
         {disabledCount > 0 && (
           <button

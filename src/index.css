@@ -159,3 +159,93 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.9);
 }
+
+/* Fluid Sheet Transitions (iOS-like spring curve) */
+.sheet-spring {
+  transition: all 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Distinctive Physical Lime Station & Hub HTML Markers */
+.lime-station-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transform: translate(-50%, -100%);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+  z-index: 25;
+}
+
+.lime-station-marker:hover,
+.lime-station-marker:active {
+  transform: translate(-50%, -108%) scale(1.12);
+  z-index: 50 !important;
+}
+
+.lime-station-beacon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  margin-left: -22px;
+  border-radius: 50%;
+  background: rgba(0, 222, 0, 0.3);
+  animation: station-beacon-pulse 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes station-beacon-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.95;
+  }
+  70% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+.lime-station-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: #090E1A;
+  color: #00DE00;
+  border: 2px solid #00DE00;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 10px rgba(0, 222, 0, 0.4);
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.lime-station-badge.is-hub {
+  background: #00DE00;
+  color: #090E1A;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 222, 0, 0.7);
+}
+
+.lime-station-pin-tail {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #00DE00;
+  margin-top: -1px;
+}
+
+.lime-station-badge.is-hub + .lime-station-pin-tail {
+  border-top-color: #00DE00;
+}
